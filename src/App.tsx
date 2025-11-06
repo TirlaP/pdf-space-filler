@@ -33,9 +33,10 @@ GlobalWorkerOptions.workerSrc = workerSrc;
 
 const MIN_FIELD_WIDTH = 80;
 const MIN_FIELD_HEIGHT = 22;
-const EXPORT_FIELD_TEXT_COLOR = rgb(0.4, 0.2, 0.6);
+const EXPORT_FIELD_TEXT_COLOR = rgb(0.2, 0.2, 0.2);
 const EXPORT_FIELD_BORDER_WIDTH = 0;
-const EXPORT_FIELD_BACKGROUND_COLOR = rgb(0.92, 0.88, 0.97);
+const EXPORT_FIELD_BACKGROUND_COLOR = rgb(0.95, 0.95, 0.95);
+const EXPORT_FIELD_FONT_SIZE = 10;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -525,6 +526,7 @@ async function buildFillablePdf(document: PdfDocumentRecord): Promise<Uint8Array
       borderColor: undefined,
       borderWidth: EXPORT_FIELD_BORDER_WIDTH,
     });
+    textField.setFontSize(EXPORT_FIELD_FONT_SIZE);
     textField.updateAppearances(font);
     if (field.multiline) {
       textField.enableMultiline();
