@@ -34,3 +34,7 @@ bun.lock
 # Environment
 .env
 .env.local
+
+# Local caches/temp
+.npm-cache/
+.tmp/
