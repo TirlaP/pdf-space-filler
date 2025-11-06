@@ -18,7 +18,7 @@ import {
   type RenderTask,
 } from 'pdfjs-dist';
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { detectFields } from './utils/detection';
 import {
   usePdfStore,
@@ -33,6 +33,10 @@ GlobalWorkerOptions.workerSrc = workerSrc;
 
 const MIN_FIELD_WIDTH = 80;
 const MIN_FIELD_HEIGHT = 22;
+const EXPORT_FIELD_TEXT_COLOR = rgb(0.4, 0.2, 0.6);
+const EXPORT_FIELD_BORDER_WIDTH = 0;
+const EXPORT_FIELD_FONT_SIZE = 12;
+const EXPORT_FIELD_BACKGROUND_COLOR = rgb(0.92, 0.88, 0.97);
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -517,8 +521,12 @@ async function buildFillablePdf(document: PdfDocumentRecord): Promise<Uint8Array
       y,
       width,
       height,
+      textColor: EXPORT_FIELD_TEXT_COLOR,
+      backgroundColor: EXPORT_FIELD_BACKGROUND_COLOR,
+      borderColor: undefined,
+      borderWidth: EXPORT_FIELD_BORDER_WIDTH,
     });
-    textField.setFontSize(12);
+    textField.setFontSize(EXPORT_FIELD_FONT_SIZE);
     textField.updateAppearances(font);
     if (field.multiline) {
       textField.enableMultiline();
