@@ -631,9 +631,14 @@ function App() {
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const fileList = event.target.files;
-    event.target.value = '';
-    if (!fileList || !fileList.length) return;
+    if (!fileList || !fileList.length) {
+      event.target.value = '';
+      return;
+    }
+    // Some browsers (e.g., Safari) clear the live FileList reference when we reset the input,
+    // so copy the files before resetting the value.
     const files = Array.from(fileList);
+    event.target.value = '';
     void ingestFiles(files);
   };
 
@@ -720,6 +725,10 @@ function App() {
   const handleAutoDetect = async () => {
     const snapshot = usePdfStore.getState().documents;
     if (!snapshot.length) return;
+    const hadFieldsInitially = snapshot.some((document) => document.fields.length > 0);
+    let foundNewCandidates = false;
+    let encounteredDetectError = false;
+
     setDetecting(true);
     setDetectingDocumentId(undefined);
     setError(null);
@@ -728,8 +737,12 @@ function App() {
       try {
         setDetectingDocumentId(document.id);
         const detected = await detectFields(document.pdfDoc, document.pages);
+        if (detected.length) {
+          foundNewCandidates = true;
+        }
         mergeFields(document.id, detected);
       } catch (detectError) {
+        encounteredDetectError = true;
         console.error(detectError);
         setError('Auto-detect failed on one or more documents. You can still add fields manually.');
       }
@@ -737,6 +750,10 @@ function App() {
 
     setDetecting(false);
     setDetectingDocumentId(undefined);
+
+    if (!encounteredDetectError && !foundNewCandidates && !hadFieldsInitially) {
+      setError('Auto-detect could not find any blanks. Try adding fields manually for this PDF.');
+    }
   };
 
   const handleAddFieldAt = useCallback(

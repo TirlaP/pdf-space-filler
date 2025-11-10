@@ -5,10 +5,33 @@ import type {
 } from 'pdfjs-dist/types/src/display/api';
 import type { Field, PageMeta } from '../store/usePdfStore';
 
-const MIN_UNDERSCORE_RUN = 8;
+const MIN_MARKER_CHAR_COUNT = 6;
 const MIN_FIELD_WIDTH = 20;
 const MIN_FIELD_HEIGHT = 14;
 const FIELD_VERTICAL_OFFSET: number = -2; // Adjust to shift detected fields vertically (negative lifts up).
+
+const MARKER_CHARACTERS = new Set<string>([
+  '_',
+  '‗',
+  '¯',
+  '‾',
+  '＿',
+  '-',
+  '–',
+  '—',
+  '―',
+  '.',
+  '·',
+  '•',
+]);
+
+const SPACER_CHARACTERS = new Set<string>([' ', '\u00a0', '\t']);
+
+type MarkerRun = {
+  start: number;
+  length: number;
+  inkCount: number;
+};
 
 type GlyphSegment = {
   start: number;
@@ -126,6 +149,50 @@ const makeId = () =>
     ? crypto.randomUUID()
     : `field_${Math.random().toString(36).slice(2, 9)}`;
 
+const extractMarkerRuns = (value: string): MarkerRun[] => {
+  const runs: MarkerRun[] = [];
+  let startIndex = -1;
+  let spanLength = 0;
+  let inkCount = 0;
+
+  const flushRun = () => {
+    if (startIndex !== -1 && inkCount >= MIN_MARKER_CHAR_COUNT) {
+      runs.push({
+        start: startIndex,
+        length: spanLength,
+        inkCount,
+      });
+    }
+    startIndex = -1;
+    spanLength = 0;
+    inkCount = 0;
+  };
+
+  for (let pointer = 0; pointer < value.length; pointer += 1) {
+    const char = value[pointer];
+    if (MARKER_CHARACTERS.has(char)) {
+      if (startIndex === -1) {
+        startIndex = pointer;
+        spanLength = 0;
+        inkCount = 0;
+      }
+      spanLength += 1;
+      inkCount += 1;
+      continue;
+    }
+
+    if (startIndex !== -1 && SPACER_CHARACTERS.has(char)) {
+      spanLength += 1;
+      continue;
+    }
+
+    flushRun();
+  }
+
+  flushRun();
+  return runs;
+};
+
 export async function detectFieldsForPage(
   page: PDFPageProxy,
   pageMeta: PageMeta,
@@ -139,10 +206,10 @@ export async function detectFieldsForPage(
   for (const item of textContent.items) {
     if (!('str' in item)) continue;
     const str = item.str ?? '';
-    if (!str.includes('_')) continue;
+    if (!str) continue;
 
-    const matches = [...str.matchAll(/(_{3,})/g)];
-    if (!matches.length) continue;
+    const markerRuns = extractMarkerRuns(str);
+    if (!markerRuns.length) continue;
 
     const glyphCount = str.length || 1;
     const itemWidth = Number.isFinite(item.width) ? item.width : 0;
@@ -153,12 +220,9 @@ export async function detectFieldsForPage(
     const baseY = transform[5];
     const fontHeight = Math.sqrt(transform[2] ** 2 + transform[3] ** 2) || 10;
 
-    for (const match of matches) {
-      if (match.index === undefined) continue;
-      const runLength = match[0].length;
-      if (runLength < MIN_UNDERSCORE_RUN) continue;
-
-      const startOffset = match.index ?? 0;
+    for (const run of markerRuns) {
+      const runLength = run.length;
+      const startOffset = run.start;
       let measuredWidth = charWidth * runLength;
       let measuredStartOffset = charWidth * startOffset;
 
